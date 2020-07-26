@@ -22,12 +22,16 @@ namespace MissionPlanner.RACPluginPos
     public class RACPluginPos : MissionPlanner.Plugin.Plugin
     {
 
+
         private static readonly ILog log =
             LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
 
         SplitContainer FDRightSide;
         Label lDebugInfo;
-        Label lPullForce;
+        Label lXtrack;
+        Label lDist;
+        Label lAlt;
+        Label lPole;
 
         //bearing of the power line
         double lineBearing;
@@ -42,7 +46,7 @@ namespace MissionPlanner.RACPluginPos
 
         internal static GMapOverlay polesLayer;
         internal GMapMarker poleMarker;
-
+        internal GMapRoute cableRoute;
 
 
         internal TableLayoutPanel tlp;
@@ -65,17 +69,19 @@ namespace MissionPlanner.RACPluginPos
         public override bool Init()
         {
 
-            //DisplayTextAttribute dta = typeof(CurrentState).GetProperty("ext1").GetCustomAttributes(false).OfType<DisplayTextAttribute>().ToArray()[0];
-
-            //dta.Text = "Miafene";
-            
-            loopratehz = 2;
+            loopratehz = 5;
 
             tlp = Host.MainForm.FlightData.Controls.Find("tableLayoutPanelQuick", true).FirstOrDefault() as TableLayoutPanel;
 
 
-            polesLayer = new GMapOverlay("poles");
+            polesLayer = new GMapOverlay("pylons");
+            cableRoute = new GMapRoute("cable");
+            cableRoute.Stroke = new Pen(Color.LightGray, 4);
+
+            polesLayer.Routes.Add(cableRoute);
+
             Host.FDGMapControl.Overlays.Add(polesLayer);
+            
 
             //Since the controls on FlighData are located in a different thread, we must use BeginInvoke to access them.
             MainV2.instance.BeginInvoke((MethodInvoker)(() =>
@@ -84,19 +90,55 @@ namespace MissionPlanner.RACPluginPos
                 //SplitContainer1 is hosting panel1 and panel2 where panel2 contains the map and all other controls on the map (WindDir, gps labels, zoom, joystick, etc.)
                 FDRightSide = Host.MainForm.FlightData.Controls.Find("splitContainer1", true).FirstOrDefault() as SplitContainer;
 
-                System.Windows.Forms.ToolStripMenuItem men = new System.Windows.Forms.ToolStripMenuItem() { Text = "Load pole positions" };
+                System.Windows.Forms.ToolStripMenuItem men = new System.Windows.Forms.ToolStripMenuItem() { Text = "Load pylon positions" };
                 men.Click += settings_Click;
                 Host.FDMenuMap.Items.Add(men);
 
 
-                lDebugInfo = new System.Windows.Forms.Label();
-                lDebugInfo.Name = "lDebugInfo";
-                //This is a good approximate position beside the wind direction and below the distance bar
-                lDebugInfo.Location = new System.Drawing.Point(66, 45);
-                lDebugInfo.Text = "TensionerDebugInfo";
-                lDebugInfo.AutoSize = true;
-                FDRightSide.Panel2.Controls.Add(lDebugInfo);
-                FDRightSide.Panel2.Controls.SetChildIndex(lDebugInfo, 1);
+                lXtrack = new Label();
+                lXtrack.Name = "lbl_xtrack";
+                lXtrack.Location = new System.Drawing.Point(0, 100);
+                lXtrack.Text = "oldal: 000 m";
+                lXtrack.AutoSize = true;
+                lXtrack.Font = new Font("Tahoma", 15, FontStyle.Bold);
+                lXtrack.Anchor = (AnchorStyles.Top | AnchorStyles.Left);
+
+                FDRightSide.Panel2.Controls.Add(lXtrack);
+                FDRightSide.Panel2.Controls.SetChildIndex(lXtrack, 1);
+
+                lDist = new Label();
+                lDist.Name = "lbl_dist";
+                lDist.Location = new System.Drawing.Point(0, 130);
+                lDist.Text = "tav: 000 m";
+                lDist.AutoSize = true;
+                lDist.Font = new Font("Tahoma", 15, FontStyle.Bold);
+                lDist.Anchor = (AnchorStyles.Top | AnchorStyles.Left);
+
+                FDRightSide.Panel2.Controls.Add(lDist);
+                FDRightSide.Panel2.Controls.SetChildIndex(lDist, 1);
+
+                lAlt = new Label();
+                lAlt.Name = "lbl_alt";
+                lAlt.Location = new System.Drawing.Point(0, 160);
+                lAlt.Text = "alt: 000 m";
+                lAlt.AutoSize = true;
+                lAlt.Font = new Font("Tahoma", 15, FontStyle.Bold);
+                lAlt.Anchor = (AnchorStyles.Top | AnchorStyles.Left);
+
+                FDRightSide.Panel2.Controls.Add(lAlt);
+                FDRightSide.Panel2.Controls.SetChildIndex(lAlt, 1);
+
+                lPole = new Label();
+                lPole.Name = "lbl_pole";
+                lPole.Location = new System.Drawing.Point(0, 190);
+                lPole.Text = "---";
+                lPole.AutoSize = true;
+                lPole.Font = new Font("Tahoma", 15, FontStyle.Bold);
+                lPole.Anchor = (AnchorStyles.Top | AnchorStyles.Left);
+
+                FDRightSide.Panel2.Controls.Add(lPole);
+                FDRightSide.Panel2.Controls.SetChildIndex(lPole, 1);
+
             }));
 
 
@@ -134,42 +176,30 @@ namespace MissionPlanner.RACPluginPos
                 MainV2.instance.BeginInvoke((MethodInvoker)(() =>
                 {
                     lDebugInfo.Text = "";
+                    lXtrack.Text = "xtr: 000 m";
+                    lDist.Text = "dis: 000 m";
+                    lAlt.Text = "alt: 000 m";
+                    lPole.Text = "---";
                 }));
                 return true;
             }
             
-            //get line bearing
-            if (closest == 0)
-            {
-                lineBearing = closest_pole.GetBearing(poles[closest + 1]);
-            }
-            else
-            {
-                lineBearing = poles[closest - 1].GetBearing(closest_pole);
-            }
-
-            double angle = copter_position.GetAngle(closest_pole, lineBearing);
-
-            //angle 0-90 left before
-            //angle 90-180 left after
-            //angle 0- -90 right before
-            //angle -180 - -90 right after
-
-
-
-
             var lineStart = closest_pole;
             var lineEnd = closest_pole;
 
             if (closest == 0) lineEnd = poles[closest + 1];
             else lineEnd = poles[closest - 1];
 
+            var lineBear = lineStart.GetBearing(lineEnd);
+
+            double angle = copter_position.GetAngle(closest_pole, lineBear);
 
             var lineDist = lineStart.GetDistance2(lineEnd);
 
             var distToLocation = lineStart.GetDistance2(copter_position);
             var bearToLocation = lineStart.GetBearing(copter_position);
-            var lineBear = lineStart.GetBearing(lineEnd);
+            
+
             if (closest > 0) lineBear = lineBear - 180;
 
             var angle1 = bearToLocation - lineBear;
@@ -182,7 +212,12 @@ namespace MissionPlanner.RACPluginPos
 
             MainV2.instance.BeginInvoke((MethodInvoker)(() =>
             {
-                lDebugInfo.Text = closest.ToString() + "   " + lineBearing.ToString() + "   " + dXt2.ToString() + "   " + alongline.ToString();
+                //lDebugInfo.Text = closest.ToString() + "   " + lineBearing.ToString() + "  " + lineBear.ToString() +"   " + dXt2.ToString() + "   " + alongline.ToString();
+                lXtrack.Text = String.Format("xtr: {0} m", dXt2.ToString("F1").Trim());
+                lDist.Text = String.Format("dis: {0} m", alongline.ToString("F1").Trim());
+                lAlt.Text = String.Format("alt: {0} m", (copter_position.Alt - closest_pole.Alt).ToString("F1").Trim());
+                lPole.Text = closest_pole.Tag.Trim();
+
             }));
 
 
@@ -223,14 +258,6 @@ namespace MissionPlanner.RACPluginPos
         {
 
             loadPoles();
-
-            /*
-            using (Form settings = new MissionPlanner.RACPluginPos.Settings(this))
-            {
-                MissionPlanner.Utilities.ThemeManager.ApplyThemeTo(settings);
-                settings.ShowDialog();
-            }
-            */
         }
 
         //Open points file and load up the poles List with the coordinates and altitude, add tag1 as the id
@@ -264,16 +291,15 @@ namespace MissionPlanner.RACPluginPos
                     var line = reader.ReadLine();
                     var values = line.Split(',');
 
-                    if (values.Length != 4) throw new InvalidDataException("Invalid poles data file format");
-
-
-                    PointLatLngAlt p = new PointLatLngAlt();
-                    p.Tag = values[0].ToString();
-                    p.Lat = Convert.ToDouble(values[2]);
-                    p.Lng = Convert.ToDouble(values[1]);
-                    p.Alt = Convert.ToDouble(values[3]);
-
-                    poles.Add(p);
+                    if (values.Length == 4)
+                    {
+                        PointLatLngAlt p = new PointLatLngAlt();
+                        p.Tag = values[0].ToString();
+                        p.Lat = Convert.ToDouble(values[2]);
+                        p.Lng = Convert.ToDouble(values[1]);
+                        p.Alt = Convert.ToDouble(values[3]);
+                        poles.Add(p);
+                    }
                 }
             }
 
@@ -283,6 +309,7 @@ namespace MissionPlanner.RACPluginPos
             {
                 GMapMarker p = new GMarkerGoogle(pole, GMarkerGoogleType.lightblue_dot);
                 polesLayer.Markers.Add(p);
+                cableRoute.Points.Add(pole);
             }
 
 
