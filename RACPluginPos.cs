@@ -29,10 +29,20 @@ namespace MissionPlanner.RACPluginPos
         Label lDebugInfo;
         Label lPullForce;
 
+        //bearing of the power line
+        double lineBearing;
+
+        PointLatLngAlt copter_position = new PointLatLngAlt();
+
         //PointLatLngAlt 
 
         //List of pole base points, tag
         List<PointLatLngAlt> poles = new List<PointLatLngAlt>();
+
+
+        internal static GMapOverlay polesLayer;
+        internal GMapMarker poleMarker;
+
 
 
         internal TableLayoutPanel tlp;
@@ -63,6 +73,10 @@ namespace MissionPlanner.RACPluginPos
 
             tlp = Host.MainForm.FlightData.Controls.Find("tableLayoutPanelQuick", true).FirstOrDefault() as TableLayoutPanel;
 
+
+            polesLayer = new GMapOverlay("poles");
+            Host.FDGMapControl.Overlays.Add(polesLayer);
+
             //Since the controls on FlighData are located in a different thread, we must use BeginInvoke to access them.
             MainV2.instance.BeginInvoke((MethodInvoker)(() =>
             {
@@ -70,10 +84,19 @@ namespace MissionPlanner.RACPluginPos
                 //SplitContainer1 is hosting panel1 and panel2 where panel2 contains the map and all other controls on the map (WindDir, gps labels, zoom, joystick, etc.)
                 FDRightSide = Host.MainForm.FlightData.Controls.Find("splitContainer1", true).FirstOrDefault() as SplitContainer;
 
-                System.Windows.Forms.ToolStripMenuItem men = new System.Windows.Forms.ToolStripMenuItem() { Text = "IFP Settings" };
+                System.Windows.Forms.ToolStripMenuItem men = new System.Windows.Forms.ToolStripMenuItem() { Text = "Load pole positions" };
                 men.Click += settings_Click;
                 Host.FDMenuMap.Items.Add(men);
 
+
+                lDebugInfo = new System.Windows.Forms.Label();
+                lDebugInfo.Name = "lDebugInfo";
+                //This is a good approximate position beside the wind direction and below the distance bar
+                lDebugInfo.Location = new System.Drawing.Point(66, 45);
+                lDebugInfo.Text = "TensionerDebugInfo";
+                lDebugInfo.AutoSize = true;
+                FDRightSide.Panel2.Controls.Add(lDebugInfo);
+                FDRightSide.Panel2.Controls.SetChildIndex(lDebugInfo, 1);
             }));
 
 
@@ -92,7 +115,77 @@ namespace MissionPlanner.RACPluginPos
 
         public override bool Loop()
         {
-            //Put together a packet and send it to the remote
+
+
+            if (!Host.cs.armed) return true;
+
+            //get actual position
+            copter_position.Lat = Host.cs.lat;
+            copter_position.Lng = Host.cs.lng;
+            copter_position.Alt = Host.cs.altasl;
+
+            int closest = get_closest_pole();
+
+            PointLatLngAlt closest_pole = poles[closest];
+
+            //No closest pole, ignore calculations
+            if (closest == -1)
+            {
+                MainV2.instance.BeginInvoke((MethodInvoker)(() =>
+                {
+                    lDebugInfo.Text = "";
+                }));
+                return true;
+            }
+            
+            //get line bearing
+            if (closest == 0)
+            {
+                lineBearing = closest_pole.GetBearing(poles[closest + 1]);
+            }
+            else
+            {
+                lineBearing = poles[closest - 1].GetBearing(closest_pole);
+            }
+
+            double angle = copter_position.GetAngle(closest_pole, lineBearing);
+
+            //angle 0-90 left before
+            //angle 90-180 left after
+            //angle 0- -90 right before
+            //angle -180 - -90 right after
+
+
+
+
+            var lineStart = closest_pole;
+            var lineEnd = closest_pole;
+
+            if (closest == 0) lineEnd = poles[closest + 1];
+            else lineEnd = poles[closest - 1];
+
+
+            var lineDist = lineStart.GetDistance2(lineEnd);
+
+            var distToLocation = lineStart.GetDistance2(copter_position);
+            var bearToLocation = lineStart.GetBearing(copter_position);
+            var lineBear = lineStart.GetBearing(lineEnd);
+            if (closest > 0) lineBear = lineBear - 180;
+
+            var angle1 = bearToLocation - lineBear;
+            if (angle1 < 0)
+                angle1 += 360;
+
+            var alongline = Math.Cos(angle1 * MathHelper.deg2rad) * distToLocation;
+            var dXt2 = Math.Sin(angle * MathHelper.deg2rad) * distToLocation;
+
+
+            MainV2.instance.BeginInvoke((MethodInvoker)(() =>
+            {
+                lDebugInfo.Text = closest.ToString() + "   " + lineBearing.ToString() + "   " + dXt2.ToString() + "   " + alongline.ToString();
+            }));
+
+
 
             return true;
         }
@@ -102,17 +195,34 @@ namespace MissionPlanner.RACPluginPos
             return true;
         }
 
+        public int get_closest_pole()
+        {
+            double distance = Double.MaxValue;
+            int closest_pole = -1;
+            int index = 0;
+
+
+            foreach (PointLatLngAlt p in poles)
+            {
+                double d = copter_position.GetDistance(p);
+                if (d < distance)
+                {
+                    distance = d;
+                    closest_pole = index;
+                }
+                index++;
+            }
+
+
+            return closest_pole;
+
+        }
+
 
         void settings_Click(object sender, EventArgs e)
         {
 
             loadPoles();
-
-
-
-
-
-
 
             /*
             using (Form settings = new MissionPlanner.RACPluginPos.Settings(this))
@@ -159,8 +269,8 @@ namespace MissionPlanner.RACPluginPos
 
                     PointLatLngAlt p = new PointLatLngAlt();
                     p.Tag = values[0].ToString();
-                    p.Lat = Convert.ToDouble(values[1]);
-                    p.Lng = Convert.ToDouble(values[2]);
+                    p.Lat = Convert.ToDouble(values[2]);
+                    p.Lng = Convert.ToDouble(values[1]);
                     p.Alt = Convert.ToDouble(values[3]);
 
                     poles.Add(p);
@@ -169,8 +279,11 @@ namespace MissionPlanner.RACPluginPos
 
             Console.WriteLine("Hello !");
 
-
-
+            foreach (PointLatLngAlt pole in poles)
+            {
+                GMapMarker p = new GMarkerGoogle(pole, GMarkerGoogleType.lightblue_dot);
+                polesLayer.Markers.Add(p);
+            }
 
 
         }
