@@ -225,6 +225,8 @@ namespace MissionPlanner.RACPluginPos
             MainV2.instance.BeginInvoke((MethodInvoker)(() =>
             {
                 //lDebugInfo.Text = closest.ToString() + "   " + lineBearing.ToString() + "  " + lineBear.ToString() +"   " + dXt2.ToString() + "   " + alongline.ToString();
+                lPole.ForeColor = System.Drawing.Color.Gray;
+                lAlt.ForeColor = System.Drawing.Color.DarkCyan;
                 lXtrack.Text = String.Format("║  {0} m", dXt2.ToString("F1").Trim());
                 lDist.Text = String.Format("══ {0} m", alongline.ToString("F1").Trim());
                 lAlt.Text = String.Format("alt: {0} m", (copter_position.Alt - closest_pole.Alt).ToString("F1").Trim());
