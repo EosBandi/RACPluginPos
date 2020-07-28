@@ -37,6 +37,7 @@ namespace MissionPlanner.RACPluginPos
         double lineBearing;
 
         PointLatLngAlt copter_position = new PointLatLngAlt();
+        PointLatLngAlt last_copter_position = new PointLatLngAlt();
 
         //PointLatLngAlt 
 
@@ -70,10 +71,8 @@ namespace MissionPlanner.RACPluginPos
         {
 
             loopratehz = 5;
-
+           
             tlp = Host.MainForm.FlightData.Controls.Find("tableLayoutPanelQuick", true).FirstOrDefault() as TableLayoutPanel;
-
-
             polesLayer = new GMapOverlay("pylons");
             cableRoute = new GMapRoute("cable");
             cableRoute.Stroke = new Pen(Color.LightGray, 4);
@@ -145,8 +144,13 @@ namespace MissionPlanner.RACPluginPos
 
 
             //Set up parameters;
-//            telemetryOutAddress = Host.config["IFP_ADAMS_IP", "127.0.0.1"];
-//            Host.config["IFP_ADAMS_IP"] = telemetryOutAddress;
+            //            telemetryOutAddress = Host.config["IFP_ADAMS_IP", "127.0.0.1"];
+            //            Host.config["IFP_ADAMS_IP"] = telemetryOutAddress;
+
+            last_copter_position.Lat = 0;
+            last_copter_position.Lng = 0;
+            last_copter_position.Alt = 0;
+
 
             return true;
         }
@@ -167,6 +171,12 @@ namespace MissionPlanner.RACPluginPos
             copter_position.Lat = Host.cs.lat;
             copter_position.Lng = Host.cs.lng;
             copter_position.Alt = Host.cs.altasl;
+
+            if ((last_copter_position == copter_position) && (last_copter_position.Alt == copter_position.Alt)) return true;
+
+            last_copter_position.Lat = copter_position.Lat;
+            last_copter_position.Lng = copter_position.Lng;
+            last_copter_position.Alt = copter_position.Alt;
 
             int closest = get_closest_pole();
 
