@@ -98,7 +98,7 @@ namespace MissionPlanner.RACPluginPos
                 lXtrack = new Label();
                 lXtrack.Name = "lbl_xtrack";
                 lXtrack.Location = new System.Drawing.Point(0, 100);
-                lXtrack.Text = "oldal: 000 m";
+                lXtrack.Text = "║  000 m";
                 lXtrack.AutoSize = true;
                 lXtrack.Font = new Font("Tahoma", 15, FontStyle.Bold);
                 lXtrack.Anchor = (AnchorStyles.Top | AnchorStyles.Left);
@@ -108,8 +108,8 @@ namespace MissionPlanner.RACPluginPos
 
                 lDist = new Label();
                 lDist.Name = "lbl_dist";
-                lDist.Location = new System.Drawing.Point(0, 130);
-                lDist.Text = "tav: 000 m";
+                lDist.Location = new System.Drawing.Point(0, 140);
+                lDist.Text = "══ 000 m";
                 lDist.AutoSize = true;
                 lDist.Font = new Font("Tahoma", 15, FontStyle.Bold);
                 lDist.Anchor = (AnchorStyles.Top | AnchorStyles.Left);
@@ -119,22 +119,24 @@ namespace MissionPlanner.RACPluginPos
 
                 lAlt = new Label();
                 lAlt.Name = "lbl_alt";
-                lAlt.Location = new System.Drawing.Point(0, 160);
+                lAlt.Location = new System.Drawing.Point(0, 180);
                 lAlt.Text = "alt: 000 m";
                 lAlt.AutoSize = true;
                 lAlt.Font = new Font("Tahoma", 15, FontStyle.Bold);
                 lAlt.Anchor = (AnchorStyles.Top | AnchorStyles.Left);
+                lAlt.ForeColor = System.Drawing.Color.DarkCyan;
 
                 FDRightSide.Panel2.Controls.Add(lAlt);
                 FDRightSide.Panel2.Controls.SetChildIndex(lAlt, 1);
 
                 lPole = new Label();
                 lPole.Name = "lbl_pole";
-                lPole.Location = new System.Drawing.Point(0, 190);
+                lPole.Location = new System.Drawing.Point(0, 220);
                 lPole.Text = "---";
                 lPole.AutoSize = true;
                 lPole.Font = new Font("Tahoma", 15, FontStyle.Bold);
                 lPole.Anchor = (AnchorStyles.Top | AnchorStyles.Left);
+                lPole.ForeColor = System.Drawing.Color.Gray;
 
                 FDRightSide.Panel2.Controls.Add(lPole);
                 FDRightSide.Panel2.Controls.SetChildIndex(lPole, 1);
@@ -176,8 +178,8 @@ namespace MissionPlanner.RACPluginPos
                 MainV2.instance.BeginInvoke((MethodInvoker)(() =>
                 {
                     lDebugInfo.Text = "";
-                    lXtrack.Text = "xtr: 000 m";
-                    lDist.Text = "dis: 000 m";
+                    lXtrack.Text = "║  000 m";
+                    lDist.Text = "══ 000 m";
                     lAlt.Text = "alt: 000 m";
                     lPole.Text = "---";
                 }));
@@ -213,10 +215,10 @@ namespace MissionPlanner.RACPluginPos
             MainV2.instance.BeginInvoke((MethodInvoker)(() =>
             {
                 //lDebugInfo.Text = closest.ToString() + "   " + lineBearing.ToString() + "  " + lineBear.ToString() +"   " + dXt2.ToString() + "   " + alongline.ToString();
-                lXtrack.Text = String.Format("xtr: {0} m", dXt2.ToString("F1").Trim());
-                lDist.Text = String.Format("dis: {0} m", alongline.ToString("F1").Trim());
+                lXtrack.Text = String.Format("║  {0} m", dXt2.ToString("F1").Trim());
+                lDist.Text = String.Format("══ {0} m", alongline.ToString("F1").Trim());
                 lAlt.Text = String.Format("alt: {0} m", (copter_position.Alt - closest_pole.Alt).ToString("F1").Trim());
-                lPole.Text = closest_pole.Tag.Trim();
+                lPole.Text = "Pylon:"+ closest_pole.Tag.Trim();
 
             }));
 
