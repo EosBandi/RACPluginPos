@@ -1,2 +1,2 @@
 # RACPluginPos
-IFP telemetry and flyto plugin
+Display pylon positions and cable route for pulling.
